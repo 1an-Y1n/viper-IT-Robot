@@ -1,0 +1,94 @@
+*** Settings ***
+# @author: Ian Yin
+# @updated: 2026-11-18
+# @comment: Trigger the PAB control RESTART over gRPC and check the status
+Documentation    PAB | GRPC Configuration, Status & Control
+...              Trigger the pre-alignment balancing procedure with the RESTART command of the gRPC API (User Guide 12.1.4.4).
+Resource    ../__init_resource.robot
+# Global Variables
+Suite Setup    Suite Initialization
+Suite Teardown   Suite Teardown
+
+*** Variables ***
+${case_name}    ${SUITE NAME.rsplit('#')[-1]}
+${proto}    pab_config.proto
+${method}    gnoi.pab_config.v1.PabConfig/SetPabCommand
+${get_method}    gnoi.pab_config.v1.PabConfig/GetPabStatus
+*** Test Cases ***
+[PAB-015-1]Send the RESTART command over gRPC
+    [Documentation]
+    ...              Step 1. Wait until the PAB is at rest
+    ...              Step 2. Call SetPabCommand with RESTART
+    ...              Step 3. Check that the call succeeded
+    [Tags]    GRPC    WRITE
+    VAR    ${sc_log}    ${case_name}-1_grpc.log    scope=TEST
+    VAR    ${payload}    {"pabCommand": {"currentCommand": "RESTART"}}
+    VAR    ${stop_payload}    {"pabCommand": {"currentCommand": "STOP"}}
+    VAR    ${start_payload}    {"pabCommand": {"currentCommand": "START"}}
+    ${rest}=    Create List    Running Status=DONE    Current Stage=IDLE
+    ${before}=    IT COMMON - Wait For Dut Cli Fields    sc_cli get_pab_status    ${rest}    timeout=120    interval=5
+    Log    ${before}
+    ${response}=    IT COMMON - Grpcurl And Return Json    ${proto}    ${method}    ${payload}
+    IT COMMON - Grpc Should Succeed    ${response}
+    ${success}=    IT COMMON - Grpc Get Field    ${response}    success
+    ${status}=    IT COMMON - Grpc Get Field    ${success}    status
+    Should Be Equal    ${status}    SUCCESS
+
+[PAB-015-2]Check the PAB status after the RESTART command
+    [Documentation]
+    ...              Step 1. Wait until the PAB shows that the command took
+    ...              Step 2. Check the running mode of the gRPC answer
+    ...              Step 3. Cross check the running mode with sc_cli get_pab_status
+    ...              Step 4. The template expects the stage to be STAGE1 right after the
+    ...                      command, but the stage walks on by itself, so the stage is
+    ...                      not pinned to one value here
+    [Tags]    GRPC    CLI    WRITE
+    VAR    ${sc_log}    ${case_name}-2_grpc_cli.log    scope=TEST
+    VAR    ${mode_suffix}    FREERUN
+    VAR    ${cli_mode_suffix}    FREERUN
+    ${cli}=    IT COMMON - Wait For Dut Cli Field Different    sc_cli get_pab_status    Current Stage    IDLE    timeout=60    interval=1
+    ${cli_mode}=    IT COMMON - Get Cli Field    ${cli}    Running Mode
+    Should Be Equal    ${cli_mode}    ${cli_mode_suffix}
+    ${cli_stage}=    IT COMMON - Get Cli Field    ${cli}    Current Stage
+    Should Not Be Equal    ${cli_stage}    IDLE
+    ${cli_completed}=    IT COMMON - Get Cli Field    ${cli}    Completed
+    Should Be Equal    ${cli_completed}    No
+    ${response}=    IT COMMON - Grpcurl And Return Json    ${proto}    ${get_method}
+    IT COMMON - Grpc Should Succeed    ${response}
+    ${status}=    IT COMMON - Grpc Get Field    ${response}    pabStatus
+    ${mode}=    IT COMMON - Grpc Get Field    ${status}    runningMode
+    Should Be Equal    ${mode}    ALIGN_PAB_MODE_${mode_suffix}
+    ${stage}=    IT COMMON - Grpc Get Field    ${status}    currentStage
+    Should Not Be Equal    ${stage}    ALIGN_PAB_STAGE_IDLE
+
+[PAB-015-3]Wait for the PAB round to be over
+    [Documentation]
+    ...              Step 1. Wait until the round is completed and the stage is IDLE
+    ...              Step 2. Check the running status
+    [Tags]    CLI    WRITE
+    VAR    ${sc_log}    ${case_name}-3_cli.log    scope=TEST
+    ${delay}=    IT COMMON - Wait For Dut Cli Field    sc_cli get_pab_status    Running Status    CONTINUE_DELAY    timeout=120    interval=1
+    ${delay_status}=    IT COMMON - Get Cli Field    ${delay}    Running Status
+    Should Be Equal    ${delay_status}    CONTINUE_DELAY
+    ${fields}=    Create List    Running Mode=FREERUN    Completed=Yes    Current Stage=IDLE
+    ${status}=    IT COMMON - Wait For Dut Cli Fields    sc_cli get_pab_status    ${fields}    timeout=300    interval=10
+    Log    ${status}
+    ${running}=    IT COMMON - Get Cli Field    ${status}    Running Status
+    Should Be Equal    ${running}    DONE
+*** Keywords ***
+Suite Initialization
+    log to console  \n\t=== Suite Initialization START ===
+    AutomationFlow.automation initial
+    SSH_IT_ROOT.Connect    ssh_setting=${SSH_DUT_IT}    level=ROOT    main_log_name=${case_name}-ssh_root.log
+    SSH_IT.Connect    ssh_setting=${SSH_DUT_IT}    level=FDX    main_log_name=${case_name}-ssh_fdx.log
+    GNMI_IT.Connect    ssh_setting=${SSH_DUT_IT}    gnmi_setting=${GNMI_DUT_IT}    main_log_name=${case_name}-gnmi.log
+    log to console  \n\t=== Suite Initialization STOP ===
+
+Suite Teardown
+    log to console  \n\t=== Suite Teardown START ===
+    # the suite has nothing to clean up
+    # SSH Close can only put in Suite Teardown
+    SSH_IT.Close
+    SSH_IT_ROOT.Close
+    GNMI_IT.Close
+    log to console  \n\t=== Suite Teardown STOP ===

@@ -1,0 +1,19 @@
+# Robocop configuration.
+#
+# Robocop is the linter Robot Framework projects use. RobotCode runs it on the
+# files it analyzes, and the rf-core plugin's PostToolUse hook runs it after
+# every write, so its findings reach the agent directly.
+#
+# The rules below are the ones that would otherwise fight this project's own
+# coding style (robot_coding_style.md).
+
+[tool.robocop.lint]
+# The project loads several instances of the same library with
+# "Library ... WITH NAME" (COS, UART_1, CM_1, SSH_EAMP_FDX ...). Robot Framework
+# calls this deprecated (DEPR03) and suggests "AS", but "WITH NAME" is the
+# pattern every suite in this project uses and the one the team reads.
+ignore = ["DEPR03"]
+
+# "Set Variable" and friends are covered by the project's own rule R5, which
+# requires the VAR syntax instead. The remaining legacy rules are still
+# reported, so a real legacy keyword is not hidden.

@@ -1,0 +1,19 @@
+# Per-testbed variable values, templates live in variables/sample/
+/variables/*.robot
+
+# Runtime output / generated data
+/result/
+
+# Python virtual environment (uv), local only
+/.venv/
+
+# Robot Framework reports at the repo root (log.html / report.html / output.xml)
+/*.html
+/*.xml
+
+# Python bytecode cache (all levels)
+__pycache__/
+
+# Local-only Claude pointer and settings
+/CLAUDE.md
+/.claude/settings.local.json

@@ -1,0 +1,56 @@
+*** Settings ***
+# @author: Ian Yin
+# @updated: 2026-11-18
+# @comment: Set the US legacy attenuation before the LNA over gNMI
+Documentation    CUST_FACING | GNMI Tests
+...              Modify the US_LEGACY_ATT_BEFORE_LNA rf-component with gNMI and read the values back (User Guide 9.2.2).
+Resource    ../__init_resource.robot
+# Global Variables
+Suite Setup    Suite Initialization
+Suite Teardown   Suite Teardown
+
+*** Variables ***
+${case_name}    ${SUITE NAME.rsplit('#')[-1]}
+# the suite carries no variable of its own
+*** Test Cases ***
+[CF-047-1]SET the US legacy attenuations over gNMI
+    [Documentation]
+    ...              Step 1. GET the legacy upstream input attenuations
+    ...              Step 2. SET the two attenuations
+    ...              Step 3. GET them again and compare with sc_rfboard_cli
+    [Tags]    GNMI    CLI    WRITE
+    VAR    ${sc_log}    ${case_name}-1_set.log    scope=TEST
+    VAR    @{updates}    /rf-components/legacy-us-input-atten[port=AMP_PORT_MAIN][index=0]/attenuation-db:::float:::17.5    /rf-components/legacy-us-input-atten[port=AMP_PORT_MAIN][index=1]/attenuation-db:::float:::19.5
+    VAR    @{paths}    /rf-components/legacy-us-input-atten[port=AMP_PORT_MAIN][index=0]/attenuation-db    /rf-components/legacy-us-input-atten[port=AMP_PORT_MAIN][index=1]/attenuation-db
+    FOR    ${path}    IN    @{paths}
+        ${before}=    IT COMMON - Gnmi Get And Return    ${path}
+    END
+    ${set}=    IT COMMON - Gnmi Set And Return    ${updates}
+    Log    ${set}
+    Should Contain    ${set}    UPDATE
+    FOR    ${path}    IN    @{paths}
+        ${after}=    IT COMMON - Gnmi Get And Return    ${path}
+        ${value}=    IT COMMON - Gnmi Get Leaf Value    ${after}    ${path}
+        Log    ${value}
+    END
+    ${cli}=    IT COMMON - Run Dut Command And Return    sc_rfboard_cli get_attenuation 6
+    Log    ${cli}
+    Should Contain    ${cli}    US_LEGACY_ATT_BEFORE_LNA
+    ${json}=    IT COMMON - Run Dut Command And Return    cat /mnt/sc_nonvol/rfboard_data.json
+    Should Contain    ${json}    us_legacy_att_before_lna_attenuation_db
+*** Keywords ***
+Suite Initialization
+    log to console  \n\t=== Suite Initialization START ===
+    AutomationFlow.automation initial
+    SSH_IT_ROOT.Connect    ssh_setting=${SSH_DUT_IT}    level=ROOT    main_log_name=${case_name}-ssh_root.log
+    SSH_IT.Connect    ssh_setting=${SSH_DUT_IT}    level=FDX    main_log_name=${case_name}-ssh_fdx.log
+    GNMI_IT.Connect    ssh_setting=${SSH_DUT_IT}    gnmi_setting=${GNMI_DUT_IT}    main_log_name=${case_name}-gnmi.log
+    log to console  \n\t=== Suite Initialization STOP ===
+
+Suite Teardown
+    log to console  \n\t=== Suite Teardown START ===
+    # SSH Close can only put in Suite Teardown
+    SSH_IT.Close
+    SSH_IT_ROOT.Close
+    GNMI_IT.Close
+    log to console  \n\t=== Suite Teardown STOP ===

@@ -1,0 +1,14 @@
+bcrypt==5.0.0
+cffi==2.1.0
+cryptography==49.0.0
+dnspython==2.7.0
+invoke==3.0.3
+paramiko==5.0.0
+pycparser==3.0
+pynacl==1.6.2
+pyserial==3.5
+robotframework==7.4.2
+robotframework-sshlibrary==3.8.0
+scp==0.16.0
+robotcode[all]==2.8.0
+robotframework-robocop==9.4.0

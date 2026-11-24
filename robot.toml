@@ -1,0 +1,61 @@
+# RobotCode / Robot Framework project configuration.
+#
+# Two things this file fixes:
+#
+# 1. Project root. RobotCode otherwise detects the root by walking up to the
+#    enclosing .git directory, which lands on the parent repository instead of
+#    this project. A robot.toml at the project root makes it the root.
+#
+# 2. Default paths. Without "paths", `robotcode discover` and `analyze code`
+#    have nothing to work with and report 0 files.
+#
+# Settings here are Robot Framework's own command-line options written with
+# their long names in words separated by hyphens ("--outputdir" becomes
+# "output-dir", "--pythonpath" becomes "python-path").
+
+# The suite roots of this project. `IT` holds the suites built from the LE IT
+# test template (DZ300-1757); they are the only suites of this project.
+paths = ["IT"]
+
+# Run artifacts. The Windows bench machine keeps them under result/<VERSION>.
+output-dir = "result"
+
+# Where the custom Python libraries live. Suites import them by relative path
+# ("../../lib/Viper/ViperSSH.py"), so this only helps a library that imports
+# another one by module name.
+python-path = ["lib", "resource"]
+
+# The real testbed values live in variables/*.robot and are imported by every
+# __init_resource.robot, so no variable file has to be listed here.
+#
+# A run gets its own result folder, so the runs do not write over each other:
+#   robotcode robot --variable VERSION:run_20261119_1532 -d result/run_20261119_1532 IT
+
+[tool.robotcode-analyze]
+# Suites and resources are the analysis target; skip the Python tree.
+exclude-patterns = [".venv/**", ".venv.windows/**", "result/**"]
+
+[tool.robotcode-analyze.modifiers]
+# The project deliberately uses "Library ... WITH NAME" to load several
+# instances of the same library (SSH_IT, SSH_IT_ROOT, SSH_IT_BANNER, GNMI_IT).
+# Robot Framework reports this as DEPR03, but for this project it is the
+# intended pattern, so the finding is informational rather than a warning.
+hint = ["LibraryAlreadyImported"]
+
+# Two kinds of finding end up here as warnings, both of them false alarms:
+#
+# 1. A keyword cannot see a variable that the calling test set with
+#    "VAR ... scope=TEST", so the static analysis reports every use of such a
+#    variable as not found even though it resolves at runtime: a keyword in a
+#    resource file cannot see the LOCAL variables of the test that calls it.
+#
+# 2. The values of the bench live in variables/*.robot, and the analyzer skips
+#    those files (they hold the passwords of the bench). The variables of the
+#    template are therefore unknown to the analyzer, and every use of one is
+#    reported as not found. The sample templates in variables/sample/ carry
+#    the same names with placeholder values.
+#
+# Robot Framework's own dry run passes,
+# so these are downgraded to a warning: a real undefined variable still shows
+# up, but it no longer fails the analysis.
+warning = ["VariableNotFound"]

@@ -1,0 +1,24 @@
+# RobotCode reads .robotignore INSTEAD OF .gitignore when this file exists at the
+# project root. The repository this project sits in has a catch-all "/*" .gitignore
+# one level up, which makes RobotCode skip every suite in this project. Without this
+# file, `robotcode analyze code` and `discover` report 0 files.
+#
+# Only paths RobotCode should skip belong here. Suites, resources and variables are
+# all in scope for discovery and analysis.
+
+# Run output
+/result/
+
+# Local-only per-testbed values (real values live in variables/*.robot,
+# the shared parameter-name contract lives in variables/sample/)
+/variables/*.robot
+
+# Python environment and caches
+/.venv/
+/.venv.windows/
+__pycache__/
+*.pyc
+
+# Robot Framework reports at the project root
+/*.html
+/*.xml
